@@ -11,7 +11,7 @@ class Settings:
     environment: str = "development"
     model_path: Path = Path("/models/birefnet_lite_fp32.onnx")
     model_repo: str = "onnx-community/BiRefNet_lite-ONNX"
-    model_revision: str = "de15b22"
+    model_revision: str = "de15b22ba131738a16dff04aab8bdf8dc32e3ac1"
     model_filename: str = "onnx/model.onnx"
     model_sha256: str = "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333"
     cpu_threads: int = 2
@@ -31,7 +31,7 @@ class Settings:
             environment=os.getenv("APP_ENV", "development").lower(),
             model_path=Path(os.getenv("MODEL_PATH", "/models/birefnet_lite_fp32.onnx")),
             model_repo=os.getenv("MODEL_REPO", "onnx-community/BiRefNet_lite-ONNX"),
-            model_revision=os.getenv("MODEL_REVISION", "de15b22"),
+            model_revision=os.getenv("MODEL_REVISION", "de15b22ba131738a16dff04aab8bdf8dc32e3ac1"),
             model_filename=os.getenv("MODEL_FILENAME", "onnx/model.onnx"),
             model_sha256=os.getenv("MODEL_SHA256", "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333").lower(),
             cpu_threads=integer("CPU_THREADS", 2),

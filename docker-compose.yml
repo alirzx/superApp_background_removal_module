@@ -12,7 +12,7 @@ services:
       API_TOKEN: ${API_TOKEN:-}
       MODEL_PATH: /models/birefnet_lite_fp32.onnx
       MODEL_REPO: ${MODEL_REPO:-onnx-community/BiRefNet_lite-ONNX}
-      MODEL_REVISION: ${MODEL_REVISION:-de15b22}
+      MODEL_REVISION: ${MODEL_REVISION:-de15b22ba131738a16dff04aab8bdf8dc32e3ac1}
       MODEL_FILENAME: ${MODEL_FILENAME:-onnx/model.onnx}
       MODEL_SHA256: ${MODEL_SHA256:-5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333}
       CPU_THREADS: ${CPU_THREADS:-2}
@@ -21,9 +21,10 @@ services:
       MAX_QUEUE_WAIT_SECONDS: ${MAX_QUEUE_WAIT_SECONDS:-10}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
       MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-20000000}
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
       HF_HUB_CACHE: /models/.hf-hub
     ports:
-      - "127.0.0.1:${API_PORT:-8000}:8000"
+      - "${API_BIND_IP:-127.0.0.1}:${API_PORT:-8000}:8000"
     volumes:
       - model_cache:/models
     networks:

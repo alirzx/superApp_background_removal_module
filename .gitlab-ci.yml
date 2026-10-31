@@ -1,0 +1,53 @@
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+backend-lint:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install ruff==0.11.2
+    - ruff check backend/app backend/scripts backend/tests
+
+backend-test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements-dev.txt
+    - PYTHONPATH=backend pytest backend/tests -q
+  # Mock session: no weight download or GPU in CI.
+
+frontend-build:
+  stage: test
+  image: node:22-alpine
+  script:
+    - cd frontend
+    - npm install --no-audit --no-fund
+    - npm run build
+
+# Manual only: requires GitLab Runner with privileged docker-in-docker.
+# This does NOT publish or deploy images.
+docker-build:
+  stage: build
+  image: docker:27-cli
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+  before_script:
+    - docker info
+  script:
+    - docker build -f backend/Dockerfile -t "birefnet-lite-api:$CI_COMMIT_SHORT_SHA" .
+    - docker build -f frontend/Dockerfile -t "birefnet-lite-ui:$CI_COMMIT_SHORT_SHA" .
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never

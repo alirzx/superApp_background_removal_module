@@ -87,3 +87,9 @@ Tests mock ONNX inference; they validate API contract and processing without dow
 6. ONNX Runtime model signature and CPU compatibility must be confirmed during first E2E smoke test, and performance may exceed 10 seconds on some CPUs.
 
 License: MIT for this repository's own source. Upstream model and ONNX artifact licenses are separate and must be reviewed before commercial release.
+
+## Prebuild polish (2026-10-31)
+
+The original Git push excluded hidden files. This update adds the Git/Docker ignore files, local/server environment templates and GitLab CI. The pinned ONNX revision is now the full immutable commit. The React UI no longer requests a remote Google Fonts CSS asset, and `make health` checks container-internal endpoints (independent of custom host ports). `make up` now starts prebuilt containers; always run `make build` first.
+
+**Important:** the UI Nginx proxy adds the shared API token to all `/api` requests. It does **not** authenticate users. Never expose UI externally without authenticated HTTPS ingress and request rate limits. Consult [Persian prebuild checklist](docs/PREBUILD_CHECKLIST_FA.md), [security](docs/SECURITY.md), and [GitLab workflow](docs/RELEASE_AND_GITLAB.md). Live model inference and Docker builds must be validated on your CPU host.

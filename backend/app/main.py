@@ -38,6 +38,24 @@ def create_app(*, settings: Settings | None = None, engine_factory: Callable | N
 
     app = FastAPI(title="BiRefNet Lite Background Removal", version="0.1.0", docs_url="/docs" if config.environment != "production" else None, redoc_url=None, lifespan=lifespan)
 
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        # Early bound for declared multipart bodies. Chunked uploads must also
+        # be bounded at authenticated ingress; UploadFile reads cap file bytes.
+        if request.method == "POST" and request.url.path.startswith("/v1/"):
+            value = request.headers.get("content-length")
+            if value is not None:
+                try:
+                    declared = int(value)
+                except ValueError:
+                    return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
+                if declared > config.max_upload_mb * 1024 * 1024 + 1024 * 1024:
+                    return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
     def authorize(x_api_key: str | None = Header(default=None)) -> None:
         if config.api_token and not hmac.compare_digest(x_api_key or "", config.api_token):
             raise HTTPException(status_code=401, detail="Invalid API key")

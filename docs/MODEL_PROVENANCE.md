@@ -6,7 +6,7 @@
 
 **ONNX conversion:** https://huggingface.co/onnx-community/BiRefNet_lite-ONNX (model card indicates `license: mit` and `base_model: ZhengPeng7/BiRefNet_lite`)
 
-**Pinned deployment artifact:** `onnx/model.onnx`, SHA256 `5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333`, weight size ~224 MB on Hub, conversion revision `de15b22` (short commit prefix shown by HF main tree at research time).
+**Pinned deployment artifact:** `onnx/model.onnx`, SHA256 `5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333`, weight size ~224 MB on Hub, conversion revision `de15b22ba131738a16dff04aab8bdf8dc32e3ac1` (immutable full revision ID shown by Hugging Face; verified before the first build).
 
 **Conversion trust boundary:** the official upstream model currently provides Safetensors weights plus custom model code; the ONNX repository is a separately published conversion. The downloaded graph is loaded by ONNX Runtime without executing Hugging Face `trust_remote_code`.
 

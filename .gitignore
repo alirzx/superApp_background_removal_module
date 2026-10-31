@@ -1,0 +1,51 @@
+# Credentials and machine-local configuration
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# Python
+.venv/
+venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+*.py[cod]
+.coverage
+htmlcov/
+coverage/
+
+# Frontend
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Pretrained artifacts and caches
+models/
+model_cache/
+.hf-hub/
+**/.cache/huggingface/
+*.onnx
+*.safetensors
+*.pt
+*.pth
+*.partial
+*.part
+
+# Local generated outputs
+*.zip
+*.log
+*.png
+*.jpg
+*.jpeg
+*.webp
+benchmarks/results/
+.DS_Store
+.vscode/
+.idea/
