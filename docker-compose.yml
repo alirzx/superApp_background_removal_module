@@ -1,0 +1,82 @@
+name: birefnet-lite
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: birefnet-lite-api:local
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      API_TOKEN: ${API_TOKEN:-}
+      MODEL_PATH: /models/birefnet_lite_fp32.onnx
+      MODEL_REPO: ${MODEL_REPO:-onnx-community/BiRefNet_lite-ONNX}
+      MODEL_REVISION: ${MODEL_REVISION:-de15b22}
+      MODEL_FILENAME: ${MODEL_FILENAME:-onnx/model.onnx}
+      MODEL_SHA256: ${MODEL_SHA256:-5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333}
+      CPU_THREADS: ${CPU_THREADS:-2}
+      OMP_NUM_THREADS: ${CPU_THREADS:-2}
+      MAX_CONCURRENT_INFERENCE: ${MAX_CONCURRENT_INFERENCE:-1}
+      MAX_QUEUE_WAIT_SECONDS: ${MAX_QUEUE_WAIT_SECONDS:-10}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
+      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-20000000}
+      HF_HUB_CACHE: /models/.hf-hub
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      - model_cache:/models
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m
+    pids_limit: 160
+    cpus: ${API_CPUS:-3.0}
+    mem_limit: ${API_MEMORY:-3g}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      start_period: 180s
+      retries: 3
+  ui:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: birefnet-lite-ui:local
+    restart: unless-stopped
+    environment:
+      API_TOKEN: ${API_TOKEN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${UI_BIND_IP:-127.0.0.1}:${UI_PORT:-8080}:80"
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /etc/nginx/conf.d:rw,size=1m
+      - /var/cache/nginx:rw,size=16m
+      - /var/run:rw,size=4m
+      - /tmp:rw,size=8m
+    cpus: ${UI_CPUS:-0.5}
+    mem_limit: ${UI_MEMORY:-256m}
+    pids_limit: 60
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+      # Nginx uses port 80; retaining CAP_NET_BIND_SERVICE is required on some Docker hosts.
+    cap_add:
+      - NET_BIND_SERVICE
+networks:
+  internal:
+    driver: bridge
+volumes:
+  model_cache:
