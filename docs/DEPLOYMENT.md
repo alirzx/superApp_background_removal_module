@@ -53,3 +53,7 @@ python -m scripts.benchmark --file ../example.png --requests 30 --concurrency 2
 ```
 
 A container is also available: `docker compose exec api python -m scripts.benchmark --url http://127.0.0.1:8000/v1/remove-background --file /path/in/container` (mount a test image intentionally rather than storing real customer data).
+
+## DNS / build troubleshooting
+
+Before clearing anything, see [راهنمای فارسی رفع خطای Docker Build و DNS](NETWORK_BUILD_TROUBLESHOOT_FA.md). Project-scoped remediation retains all other Docker workloads and preserves build caches and model weights.
