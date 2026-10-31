@@ -5,19 +5,21 @@ stages:
 
 variables:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_PRIMARY_INDEX_URL: "https://package-mirror.liara.ir/repository/pypi/simple"
+  PIP_FALLBACK_INDEX_URL: "https://mirror2.chabokan.net/pypi/simple/"
 
 backend-lint:
   stage: lint
   image: python:3.11-slim
   script:
-    - pip install ruff==0.11.2
+    - python -m pip install --timeout 15 --retries 2 --index-url "$PIP_PRIMARY_INDEX_URL" ruff==0.11.2 || python -m pip install --timeout 15 --retries 2 --index-url "$PIP_FALLBACK_INDEX_URL" ruff==0.11.2
     - ruff check backend/app backend/scripts backend/tests
 
 backend-test:
   stage: test
   image: python:3.11-slim
   script:
-    - pip install -r backend/requirements-dev.txt
+    - python -m pip install --timeout 15 --retries 2 --index-url "$PIP_PRIMARY_INDEX_URL" -r backend/requirements-dev.txt || python -m pip install --timeout 15 --retries 2 --index-url "$PIP_FALLBACK_INDEX_URL" -r backend/requirements-dev.txt
     - PYTHONPATH=backend pytest backend/tests -q
   # Mock session: no weight download or GPU in CI.
 
@@ -45,7 +47,7 @@ docker-build:
   before_script:
     - docker info
   script:
-    - docker build -f backend/Dockerfile -t "birefnet-lite-api:$CI_COMMIT_SHORT_SHA" .
+    - docker build --build-arg PIP_PRIMARY_INDEX_URL="$PIP_PRIMARY_INDEX_URL" --build-arg PIP_FALLBACK_INDEX_URL="$PIP_FALLBACK_INDEX_URL" -f backend/Dockerfile -t "birefnet-lite-api:$CI_COMMIT_SHORT_SHA" .
     - docker build -f frontend/Dockerfile -t "birefnet-lite-ui:$CI_COMMIT_SHORT_SHA" .
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

@@ -4,6 +4,9 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        PIP_PRIMARY_INDEX_URL: ${PIP_PRIMARY_INDEX_URL:-https://package-mirror.liara.ir/repository/pypi/simple}
+        PIP_FALLBACK_INDEX_URL: ${PIP_FALLBACK_INDEX_URL:-https://mirror2.chabokan.net/pypi/simple/}
     image: birefnet-lite-api:local
     restart: unless-stopped
     init: true
@@ -57,7 +60,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${UI_BIND_IP:-127.0.0.1}:${UI_PORT:-8080}:80"
+      - "${UI_BIND_IP:-127.0.0.1}:${UI_PORT:-8081}:80"
     networks:
       - internal
     read_only: true

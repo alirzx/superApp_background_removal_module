@@ -57,3 +57,7 @@ A container is also available: `docker compose exec api python -m scripts.benchm
 ## DNS / build troubleshooting
 
 Before clearing anything, see [راهنمای فارسی رفع خطای Docker Build و DNS](NETWORK_BUILD_TROUBLESHOOT_FA.md). Project-scoped remediation retains all other Docker workloads and preserves build caches and model weights.
+
+## Default regional PyPI mirrors
+
+API image builds use Liara as the primary mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and retry with Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) on installation failure. This is configured by the two `PIP_*_INDEX_URL` Docker build arguments; they are not needed at runtime. These mirrors do not cover Hugging Face model downloads. The default local UI host port is 8081; update an existing `.env` explicitly if it still says 8080.

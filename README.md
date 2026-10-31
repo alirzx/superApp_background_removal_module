@@ -17,7 +17,7 @@ make ps
 make health
 ```
 
-UI: `http://127.0.0.1:8080` • API: `http://127.0.0.1:8000` • API OpenAPI (dev): `http://127.0.0.1:8000/docs`
+UI: `http://127.0.0.1:8081` • API: `http://127.0.0.1:8000` • API OpenAPI (dev): `http://127.0.0.1:8000/docs`
 
 If production, set `APP_ENV=production` and a long random `API_TOKEN` before startup. UI proxy uses token server-side. Public deployment **requires** HTTPS ingress, identity/rate controls, and appropriate firewalling.
 
@@ -93,3 +93,9 @@ License: MIT for this repository's own source. Upstream model and ONNX artifact 
 The original Git push excluded hidden files. This update adds the Git/Docker ignore files, local/server environment templates and GitLab CI. The pinned ONNX revision is now the full immutable commit. The React UI no longer requests a remote Google Fonts CSS asset, and `make health` checks container-internal endpoints (independent of custom host ports). `make up` now starts prebuilt containers; always run `make build` first.
 
 **Important:** the UI Nginx proxy adds the shared API token to all `/api` requests. It does **not** authenticate users. Never expose UI externally without authenticated HTTPS ingress and request rate limits. Consult [Persian prebuild checklist](docs/PREBUILD_CHECKLIST_FA.md), [security](docs/SECURITY.md), and [GitLab workflow](docs/RELEASE_AND_GITLAB.md). Live model inference and Docker builds must be validated on your CPU host.
+
+## Regional Python package mirrors (default)
+
+The **API Docker build** first installs Python dependencies using the Liara PyPI mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and automatically retries once using Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) if the first installation fails. Mirror URLs can be overridden per project using `PIP_PRIMARY_INDEX_URL` / `PIP_FALLBACK_INDEX_URL` in an untracked `.env` or Docker Compose build arguments. BuildKit's pip cache is preserved. No host-level pip configuration, Docker daemon settings, shared images or other containers are changed. This does **not** mirror Hugging Face model weights or Docker Hub base images. Sources: https://docs.liara.ir/mirrors/pypi/ and https://iran.chabokan.net/.
+
+The local UI port default is now `8081` to avoid colliding with the existing STT service on host port `8080`. If your existing untracked `.env` contains `UI_PORT=8080`, update that value manually. See `docs/NETWORK_BUILD_TROUBLESHOOT_FA.md`.

@@ -27,7 +27,7 @@ docker compose logs --tail=100 api
 docker compose logs --tail=100 ui
 ```
 
-UI: `http://127.0.0.1:8080`، API: `http://127.0.0.1:8000/docs` در development. `make up` فقط اجرا می‌کند و Build مجدد انجام نمی‌دهد. `docker compose down` مدل را حفظ می‌کند؛ `down -v` وزن‌های ذخیره‌شده را حذف می‌کند.
+UI: `http://127.0.0.1:8081`، API: `http://127.0.0.1:8000/docs` در development. `make up` فقط اجرا می‌کند و Build مجدد انجام نمی‌دهد. `docker compose down` مدل را حفظ می‌کند؛ `down -v` وزن‌های ذخیره‌شده را حذف می‌کند.
 
 ## محیط سرور / GitLab
 1. نمونه `.env.production.example` را روی سرور به `.env` کپی و `API_TOKEN` را با `openssl rand -hex 32` بسازید؛ فایل را Commit نکنید.

@@ -54,3 +54,39 @@ docker compose -p birefnet-lite rm --stop --force api ui
 docker image rm birefnet-lite-api:local birefnet-lite-ui:local
 ```
 بدون `-f` روی `docker image rm` اگر Image به کانتینر دیگری متصل باشد Docker حذف را رد می‌کند. مدل ذخیره‌شده در `birefnet-lite_model_cache` را حذف نکنید. پاک کردن Imageها از نظر فنی ضروری نیست و باعث تکرار بخشی از دانلودها می‌شود.
+
+## میرورهای رسمی و مکانیزم Build (به‌روزرسانی ۳۱ اکتبر ۲۰۲۶)
+
+طبق مستندات رسمی [لیارا](https://docs.liara.ir/mirrors/pypi/) و [چابکان](https://iran.chabokan.net/)، اکنون نصب پکیج‌های Python به‌ترتیب از این منابع انجام می‌شود:
+
+1. لیارا: `https://package-mirror.liara.ir/repository/pypi/simple` (اولویت اول)
+2. چابکان: `https://mirror2.chabokan.net/pypi/simple/` (تلاش مجدد اگر نصب اول شکست بخورد)
+
+پاسخ HTTP 405 در `curl -I` برای چابکان فقط نشان می‌دهد HEAD مجاز نیست. برای تست واقعی باید GET به کار رود:
+
+```bash
+curl -fsS --max-time 15 -o /dev/null -w 'Liara HTTP %{http_code}\n' 'https://package-mirror.liara.ir/repository/pypi/simple/fastapi/'
+curl -fsS --max-time 15 -o /dev/null -w 'Chabokan HTTP %{http_code}\n' 'https://mirror2.chabokan.net/pypi/simple/fastapi/'
+```
+
+`pip --extra-index-url` ترتیب fallback قابل‌اعتماد نمی‌دهد؛ Dockerfile ابتدا نصب را فقط با لیارا امتحان می‌کند و اگر شکست خورد، با چابکان مجدداً اجرا می‌کند. اگر هر دو مخزن خطای DNS/شبکه داشته باشند Build همچنان شکست می‌خورد. Cache پروژه در BuildKit حفظ می‌شود. در `docker-compose.yml` بخش `api.build.args` برای تغییر Mirrorها از `.env` وجود دارد.
+
+### دستورات امن پس از Pull
+
+```bash
+cd /mnt/X/hami_system_sharif/superApp_background_removal_module
+git fetch personal
+git merge --ff-only personal/main
+# فایل .env قبلی تغییر خودکار نمی‌کند؛ در صورت اشغال بودن 8080، UI_PORT=8081 بگذارید.
+docker compose config --quiet
+DOCKER_BUILDKIT=1 docker compose --progress plain build api
+# UI قبلاً build شده است؛ در صورت نیاز جداگانه بسازید.
+docker image inspect birefnet-lite-api:local
+make model
+make model-verify
+make up
+make ps
+make health
+```
+
+**توجه:** مدل ONNX از Hugging Face دریافت می‌شود، نه PyPI. این Mirrorها مشکل دانلود مدل را به‌طور خودکار حل نمی‌کنند. دستورات آزمایشی قبلی که `python:3.11-slim-bookworm` را با `--pull=never` اجرا می‌کردند ممکن است به دلیل نبود تگ محلی، اصلاً به مرحله آزمایش DNS نرسیده باشند؛ همچنین برخی درخواست‌های شبکه ممکن است معلق بمانند. در این نسخه ابتدا دو URL بالا با HTTP GET آزمایش شوند.
