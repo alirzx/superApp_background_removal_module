@@ -55,6 +55,7 @@ deploy:
         0|1) ;;
         *) echo 'RUN_SERVICES must be 0 or 1' >&2; exit 1 ;;
       esac
+      echo "Requested server startup: RUN_SERVICES=${RUN_SERVICES:-0}"
       REMOTE="${SSH_USER}@${VM_IPADDRESS}"
       TARGET='/opt/apps/ai-service/background-removal'
       ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
@@ -82,8 +83,9 @@ deploy:
       docker compose config --quiet
       docker compose build api ui
       echo '=== Preparing persistent ONNX weights (first deploy downloads ~224 MB) ==='
-      docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model
-      docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model --verify-only
+      # Prevent docker compose run from consuming the SSH here-document on stdin.
+      docker compose run -T --rm --no-deps --entrypoint python api -m scripts.download_model </dev/null
+      docker compose run -T --rm --no-deps --entrypoint python api -m scripts.download_model --verify-only </dev/null
       if [ "$RUN_SERVICES" = "1" ]; then
         echo '=== Runtime explicitly enabled; testing API and UI health ==='
         docker compose up -d --no-build --wait --wait-timeout 240 api ui
