@@ -35,7 +35,7 @@ UI: `http://127.0.0.1:8082`، API: `http://127.0.0.1:8001/docs` در development
 3. پورت‌های UI و API را روی loopback نگه دارید و با SSH Tunnel یا Ingress مجاز استفاده کنید.
 4. **اخطار امنیتی:** Nginx توکن API را برای تمام درخواست‌های UI درج می‌کند، ولی احراز هویت کاربر ندارد. قبل از انتشار عمومی، HTTPS، احراز هویت (مثلاً OIDC/SSO) و Rate Limit در Ingress اجباری است.
 5. CPU_THREADS=2 و MAX_CONCURRENT_INFERENCE=1 مقادیر اولیه هستند؛ RAM=3g، 4g و 5g در تست واقعی روی لپ‌تاپ به OOM منجر شده‌اند. API_MEMORY=8g در نمونه Production تنها پیشنهاد آزمایشی و بدون تضمین است.
-6. CI فعلی فقط وجود فایل‌های Source را بررسی می‌کند و Job دستی SSH برای Build سرور دارد؛ تست‌های Mock به‌صورت خودکار در CI اجرا نمی‌شوند. RUN_SERVICES=0 مانع اجرای خودکار مدل می‌شود و مدل باید جداگانه در Volume دانلود و تأیید شود.
+6. CI هنگام Push به `master` با SSH هر دو Image را Build می‌کند، مدل ONNX را در Volume پایدار دریافت و SHA256 را اعتبارسنجی می‌کند. `RUN_SERVICES=0` پیش‌فرض و مانع راه‌اندازی جدید سرویس‌هاست. برای اجرای API/UI باید پس از تأیید RAM، متغیر GitLab `RUN_SERVICES=1` شود. تست‌های Mock فعلاً در CI اجرا نمی‌شوند.
 
 ## چک‌لیست پذیرش
 - [ ] `make doctor`, `make build`, `make model`, `make model-verify` موفق باشند.

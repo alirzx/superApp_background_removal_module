@@ -1,24 +1,102 @@
+# Keep the organization's shell-runner and SSH deployment contract.
+# Build and SHA256-verify the ONNX weights before an optional runtime start.
+# Default is build/model preparation only because the CPU model has OOM history.
+stages:
+  - deploy
+
+variables:
+  RUN_SERVICES: "0"
+
 deploy:
   stage: deploy
-  before_script:
-    - "command -v ssh-agent >/dev/null || ( apk add --update openssh )"
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - - ssh-add -l
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - ssh-keyscan -p $SSH_PORT $VM_IPADDRESS >> ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-  script:
-    - echo $SSH_USER
-    #- sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no $ENV_FILE $SSH_USER@$VM_IPADDRESS:/opt/organizational-wiki/frontend/.env
-    #- printf '%s\n' "$ENV_FILE" > .env
-    - scp -P "$SSH_PORT" "$ENV_FILE" "$SSH_USER@$VM_IPADDRESS:/opt/apps/ai-service/background-removal/.env"
-    #- scp -P "$SSH_PORT" .env "$SSH_USER@$VM_IPADDRESS:/opt/organizational-wiki/frontend/.env"
-    - ssh $SSH_USER@$VM_IPADDRESS -p ${SSH_PORT} "cd /opt/apps/ai-service/background-removal && git pull origin master && docker compose up --build -d"
   only:
     - master
   tags:
     - linux
     - bina
     - shell
+  before_script:
+    - |
+      set -euo pipefail
+      for name in SSH_PRIVATE_KEY SSH_USER SSH_PORT VM_IPADDRESS ENV_FILE; do
+        if [ -z "${!name:-}" ]; then
+          echo "Missing GitLab CI variable: $name" >&2
+          exit 1
+        fi
+      done
+      command -v ssh-agent >/dev/null
+      command -v ssh >/dev/null
+      command -v scp >/dev/null
+      test -f "$ENV_FILE" || { echo 'ENV_FILE must be a GitLab File variable' >&2; exit 1; }
+      eval "$(ssh-agent -s)"
+      mkdir -p "$HOME/.ssh"
+      chmod 700 "$HOME/.ssh"
+      # Existing runner uses a text SSH_PRIVATE_KEY; also accept GitLab File variables.
+      if [ -f "$SSH_PRIVATE_KEY" ]; then
+        chmod 600 "$SSH_PRIVATE_KEY"
+        ssh-add "$SSH_PRIVATE_KEY"
+      else
+        printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+      fi
+      # An optional, independently verified File variable avoids trust-on-first-use.
+      if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then
+        test -f "$SSH_KNOWN_HOSTS" || { echo 'SSH_KNOWN_HOSTS must be a File variable' >&2; exit 1; }
+        cp "$SSH_KNOWN_HOSTS" "$HOME/.ssh/known_hosts"
+      else
+        echo 'WARNING: SSH_KNOWN_HOSTS not set; using original DevOps ssh-keyscan behavior.'
+        ssh-keyscan -T 10 -p "$SSH_PORT" "$VM_IPADDRESS" > "$HOME/.ssh/known_hosts"
+      fi
+      test -s "$HOME/.ssh/known_hosts"
+      chmod 600 "$HOME/.ssh/known_hosts"
+  script:
+    - |
+      set -euo pipefail
+      case "${RUN_SERVICES:-0}" in
+        0|1) ;;
+        *) echo 'RUN_SERVICES must be 0 or 1' >&2; exit 1 ;;
+      esac
+      REMOTE="${SSH_USER}@${VM_IPADDRESS}"
+      TARGET='/opt/apps/ai-service/background-removal'
+      ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
+        "test -d '$TARGET/.git' && test -f '$TARGET/docker-compose.yml'"
+      scp -P "$SSH_PORT" -o BatchMode=yes "$ENV_FILE" "$REMOTE:$TARGET/.env"
+      ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
+        "RUN_SERVICES='${RUN_SERVICES:-0}' bash -se" <<'REMOTE_SCRIPT'
+      set -Eeuo pipefail
+      cd /opt/apps/ai-service/background-removal
+      diagnostic() {
+        rc=$?
+        if [ "$rc" -ne 0 ]; then
+          echo '=== Deployment failed; collecting non-secret diagnostics ==='
+          docker compose ps -a || true
+          docker compose logs --tail=80 api ui || true
+          for name in birefnet-lite-api-1 birefnet-lite-ui-1; do
+            docker inspect --format 'container={{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$name" || true
+          done
+        fi
+      }
+      trap diagnostic EXIT
+      git checkout master
+      git fetch origin master
+      git merge --ff-only origin/master
+      docker compose config --quiet
+      docker compose build api ui
+      echo '=== Preparing persistent ONNX weights (first deploy downloads ~224 MB) ==='
+      docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model
+      docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model --verify-only
+      if [ "$RUN_SERVICES" = "1" ]; then
+        echo '=== Runtime explicitly enabled; testing API and UI health ==='
+        docker compose up -d --no-build --wait --wait-timeout 240 api ui
+        docker compose ps -a
+      else
+        # An earlier failed deployment may have left this API in a restart loop.
+        API_STATE="$(docker inspect --format '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' birefnet-lite-api-1 2>/dev/null || true)"
+        case "$API_STATE" in
+          restarting/*|*/unhealthy)
+            echo 'Stopping only this module unhealthy/restarting API and dependent UI.'
+            docker compose stop api ui || true
+            ;;
+        esac
+        echo 'BUILD_AND_MODEL_READY: images built and model verified; RUN_SERVICES=0, no new service start attempted.'
+      fi
+      REMOTE_SCRIPT

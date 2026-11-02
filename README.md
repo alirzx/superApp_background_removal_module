@@ -4,7 +4,7 @@ Standalone CPU-only background removal for the AI Super App: two long-running Do
 
 ## Current deployment state (2026-11-02)
 
-`personal/main` and the organization GitLab `origin/master` synchronized through `0252972` before this documentation update. Local API/UI Docker builds and ONNX checksum verification succeeded. The real ONNX session/warm-up caused container OOM (exit 137) under 3g/4g/5g memory limits; UI cannot become healthy until API is healthy. **No production performance or readiness claim is made.** The GitLab shell-runner CI validates source layout and offers a manual SSH Docker image build, defaulting to `RUN_SERVICES=0`. A new server-side RAM benchmark is required before enabling runtime startup.
+`personal/main` and the organization GitLab `origin/master` synchronized through `0252972` before this documentation update. Local API/UI Docker builds and ONNX checksum verification succeeded. The real ONNX session/warm-up caused container OOM (exit 137) under 3g/4g/5g memory limits; UI cannot become healthy until API is healthy. **No production performance or readiness claim is made.** The GitLab shell-runner job builds API/UI images, downloads and verifies ONNX weights on the server, and skips starting new services by default (`RUN_SERVICES=0`). Explicit runtime testing requires approved server RAM and `RUN_SERVICES=1`. A new server-side RAM benchmark is required before enabling runtime startup.
 
 ## Quick start
 
@@ -78,7 +78,7 @@ Tests mock ONNX inference; they validate API contract and processing without dow
 - `backend/tests/`: API, auth, image processing tests with a fake engine.
 - `frontend/src/`: React UI (Persian RTL, drag-and-drop, previews, mask, PNG download).
 - `ops/nginx.conf.template`: static serving and reverse proxy; no browser API secret.
-- `.gitlab-ci.yml`: source-layout validation and manual SSH server build; service startup requires RUN_SERVICES=1.
+- `.gitlab-ci.yml`: GitLab `master` SSH build + ONNX model download/verification; runtime startup requires `RUN_SERVICES=1`.
 - `docs/`: architecture, deployment, model provenance and limitations.
 
 ### Important notes
@@ -102,4 +102,4 @@ The original Git push excluded hidden files. This update adds the Git/Docker ign
 
 The **API Docker build** first installs Python dependencies using the Liara PyPI mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and automatically retries once using Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) if the first installation fails. Mirror URLs can be overridden per project using `PIP_PRIMARY_INDEX_URL` / `PIP_FALLBACK_INDEX_URL` in an untracked `.env` or Docker Compose build arguments. BuildKit's pip cache is preserved. No host-level pip configuration, Docker daemon settings, shared images or other containers are changed. This does **not** mirror Hugging Face model weights or Docker Hub base images. Sources: https://docs.liara.ir/mirrors/pypi/ and https://iran.chabokan.net/.
 
-The current Compose host defaults are **API_PORT=8001** and **UI_PORT=8082** (DevOps update `0252972`); internal API/Nginx ports remain `8000`/`80`. Existing untracked `.env` values take precedence over Compose defaults, so update local and GitLab `ENV_FILE` configurations explicitly. The server deploy CI is manual and defaults to `RUN_SERVICES=0` while OOM remains unresolved. See `docs/NETWORK_BUILD_TROUBLESHOOT_FA.md`.
+The current Compose host defaults are **API_PORT=8001** and **UI_PORT=8082** (DevOps update `0252972`); internal API/Nginx ports remain `8000`/`80`. Existing untracked `.env` values take precedence over Compose defaults, so update local and GitLab `ENV_FILE` configurations explicitly. The GitLab `master` deploy job runs on push but defaults to images/model preparation (`RUN_SERVICES=0`) while ONNX CPU OOM remains unresolved. See `docs/NETWORK_BUILD_TROUBLESHOOT_FA.md`.

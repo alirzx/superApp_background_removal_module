@@ -23,13 +23,12 @@ Model weights (~224MB on disk) were downloaded and checksum-verified, but ONNX R
 
 ## Deployment on GitLab server
 
-1. Existing CI uses the shell runner tagged `linux`, `bina`, `shell`, and a **manual** `deploy` job on GitLab `master`.
-2. Set `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, and `ENV_FILE` as **File** CI/CD variables; set `SSH_USER`, `SSH_PORT`, and `VM_IPADDRESS` as standard variables. The `ENV_FILE` value is the complete production `.env` contents, not a pathname.
-3. The job transfers `.env` to `/opt/apps/ai-service/background-removal/.env`, fast-forwards checked-out `master`, and runs `docker compose config --quiet` followed by `docker compose build api ui`.
-4. `RUN_SERVICES=0` is the default. The manual job **does not download the model or start containers**. Before authorizing startup, download the ONNX once with `docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model`, verify its SHA256 in the persistent volume, and confirm actual server RAM capacity.
-5. Block direct Internet access to API where possible. Limit UI ingress to HTTPS, proper ACL/auth at gateway, and prevent unauthorized image uploads.
-6. Turn on central metrics/logging; **do not log image contents or model secrets**.
-7. Ensure server cores, memory and thread counts are reserved so other CPU modules stay responsive.
+1. GitLab `master` triggers the single SSH `deploy` job on the organizational shell runner tagged `linux`, `bina` and `shell`.
+2. Set `SSH_PRIVATE_KEY` (existing plain-text or File), `SSH_USER`, `SSH_PORT`, `VM_IPADDRESS` and `ENV_FILE` (**File** containing the production `.env`). Optional verified `SSH_KNOWN_HOSTS` (File) avoids the original `ssh-keyscan` trust-on-first-use fallback.
+3. The job transfers the production `.env` to `/opt/apps/ai-service/background-removal/.env`, fast-forwards the server's GitLab checkout, checks Compose, builds `api` and `ui`, downloads the pinned ONNX model into the persistent Docker volume, and verifies SHA256. Missing Hugging Face connectivity or a checksum mismatch will fail the job **before a new runtime start**.
+4. The default GitLab variable `RUN_SERVICES=0` performs build/model preparation only. With an approved server memory budget, set `RUN_SERVICES=1` as a **GitLab CI/CD variable** to attempt startup and verify health. It is not a Compose `.env` variable.
+5. On failure, CI emits `docker compose ps -a`, recent API/UI logs, and container exit/OOM/health status. It will stop only this module's previously unhealthy/restarting containers when preparing in `RUN_SERVICES=0` mode.
+6. Server RAM and actual inference remain unverified: an `API_MEMORY=8g` trial value is not a measured minimum. Provide authenticated HTTPS ingress, rate limiting and resource monitoring before production exposure.
 
 ## Release acceptance
 
