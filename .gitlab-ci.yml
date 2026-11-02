@@ -1,95 +1,24 @@
-# Super App / Module 01: Background Removal
-# Adapted from organization's GitLab origin/master CI template.
-# Uses the DevOps shell runner tags and SSH deployment contract.
-# Automatic deploy/startup is disabled while ONNX CPU memory/OOM is unresolved.
-
-stages:
-  - validate
-  - deploy
-
-variables:
-  # Public, non-secret Python package build mirrors (Dockerfile/Compose defaults).
-  PIP_PRIMARY_INDEX_URL: "https://package-mirror.liara.ir/repository/pypi/simple"
-  PIP_FALLBACK_INDEX_URL: "https://mirror2.chabokan.net/pypi/simple/"
-  DEPLOY_DIR: "/opt/apps/ai-service/background-removal"
-  # Explicitly opt in to starting containers AFTER server-side memory validation.
-  RUN_SERVICES: "0"
-
-validate-source:
-  stage: validate
-  tags:
-    - linux
-    - bina
-    - shell
-  script:
-    - |
-      set -eu
-      for path in \
-        docker-compose.yml backend/Dockerfile backend/requirements.txt \
-        backend/app/main.py backend/app/inference.py \
-        backend/scripts/download_model.py frontend/Dockerfile \
-        frontend/package.json .env.production.example; do
-        test -f "$path" || { echo "Missing deployment file: $path"; exit 1; }
-      done
-      echo "Super App background removal source layout OK"
-
-# DevOps SSH deploy template, hardened and deliberately manual.
-# CI/CD file variables: SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS, ENV_FILE.
-# CI/CD ordinary variables: SSH_USER, SSH_PORT, VM_IPADDRESS.
-# Server must have a checked-out GitLab origin/master and Docker Compose.
 deploy:
   stage: deploy
+  before_script:
+    - "command -v ssh-agent >/dev/null || ( apk add --update openssh )"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - - ssh-add -l
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -p $SSH_PORT $VM_IPADDRESS >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo $SSH_USER
+    #- sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no $ENV_FILE $SSH_USER@$VM_IPADDRESS:/opt/organizational-wiki/frontend/.env
+    #- printf '%s\n' "$ENV_FILE" > .env
+    - scp -P "$SSH_PORT" "$ENV_FILE" "$SSH_USER@$VM_IPADDRESS:/opt/apps/ai-service/background-removal/.env"
+    #- scp -P "$SSH_PORT" .env "$SSH_USER@$VM_IPADDRESS:/opt/organizational-wiki/frontend/.env"
+    - ssh $SSH_USER@$VM_IPADDRESS -p ${SSH_PORT} "cd /opt/apps/ai-service/background-removal && git pull origin master && docker compose up --build -d"
+  only:
+    - master
   tags:
     - linux
     - bina
     - shell
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-      when: manual
-      allow_failure: true
-    - when: never
-  before_script:
-    - |
-      set -eu
-      command -v ssh-agent >/dev/null || { echo 'Install openssh-client on the shell runner'; exit 1; }
-      command -v ssh >/dev/null
-      command -v scp >/dev/null
-      : "${SSH_USER:?Set SSH_USER in GitLab CI/CD Variables}"
-      : "${SSH_PORT:?Set SSH_PORT in GitLab CI/CD Variables}"
-      : "${VM_IPADDRESS:?Set VM_IPADDRESS in GitLab CI/CD Variables}"
-      : "${SSH_PRIVATE_KEY:?Set SSH_PRIVATE_KEY as a File CI/CD variable}"
-      : "${SSH_KNOWN_HOSTS:?Set SSH_KNOWN_HOSTS as a File CI/CD variable}"
-      : "${ENV_FILE:?Set ENV_FILE as a File CI/CD variable}"
-      test -f "$SSH_PRIVATE_KEY" || { echo 'SSH_PRIVATE_KEY must be a File variable'; exit 1; }
-      test -f "$SSH_KNOWN_HOSTS" || { echo 'SSH_KNOWN_HOSTS must be a File variable'; exit 1; }
-      test -f "$ENV_FILE" || { echo 'ENV_FILE must be a File variable'; exit 1; }
-      eval "$(ssh-agent -s)"
-      trap 'ssh-agent -k >/dev/null 2>&1 || true' EXIT
-      chmod 600 "$SSH_PRIVATE_KEY"
-      ssh-add "$SSH_PRIVATE_KEY"
-      mkdir -p "$HOME/.ssh"
-      chmod 700 "$HOME/.ssh"
-      cp "$SSH_KNOWN_HOSTS" "$HOME/.ssh/known_hosts"
-      chmod 600 "$HOME/.ssh/known_hosts"
-  script:
-    - |
-      set -eu
-      REMOTE="${SSH_USER}@${VM_IPADDRESS}"
-      TARGET="${DEPLOY_DIR:-/opt/apps/ai-service/background-removal}"
-      # Block unsafe shell characters before inserting the target into a remote shell command.
-      case "$TARGET" in *[!A-Za-z0-9_./-]*|'') echo 'Unsafe DEPLOY_DIR'; exit 1;; esac
-      echo "Preparing checked-out GitLab service at ${TARGET}"
-      ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
-        "test -d '$TARGET/.git' || { echo 'Missing server Git checkout'; exit 1; }"
-      # ENV_FILE is a GitLab File variable (its value is a path), not raw env contents.
-      scp -P "$SSH_PORT" -o BatchMode=yes "$ENV_FILE" "$REMOTE:$TARGET/.env"
-      # Build first. Never auto-start an OOM-prone ONNX model after a Git push.
-      ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
-        "set -eu; cd '$TARGET'; git checkout master; git fetch origin master; git merge --ff-only origin/master; docker compose config --quiet; docker compose build api ui"
-      if [ "${RUN_SERVICES:-0}" = "1" ]; then
-        echo 'Explicit runtime start requested; verifying the installed model before startup.'
-        ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE" \
-          "set -eu; cd '$TARGET'; docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model --verify-only; docker compose up -d --no-build --wait --wait-timeout 240 api ui"
-      else
-        echo 'Build completed; runtime startup intentionally skipped (RUN_SERVICES=0).'
-      fi
