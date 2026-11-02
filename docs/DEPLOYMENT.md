@@ -17,6 +17,11 @@ Visit `http://127.0.0.1:8082`. API at `http://127.0.0.1:8001` (loopback by defau
 
 The `model_cache` volume survives `docker compose down`, code updates, and image rebuilds; `docker compose down -v` **deletes weights and the HF cache**.
 
+**Frontend startup policy:** the UI now waits for the API container to be **started**, not **healthy**. The Nginx reverse proxy still targets `api:8000` on Docker's internal network. The React UI can display the backend readiness state while BiRefNet initializes; a healthy API is still required for successful image processing and for the `RUN_SERVICES=1` CI deployment gate. This change does **not** override `RUN_SERVICES=0`, launch containers by itself, or expose the UI to the LAN.
+
+**Diagnose missing UI (DevOps on server):** run `docker compose ps -a`, `docker compose logs --tail=100 ui`, `docker inspect birefnet-lite-ui-1 --format '{{.State.Status}} {{.State.ExitCode}}'`, and `docker compose config --services`. To confirm CI really started containers, its log must include `Requested server startup: RUN_SERVICES=1`, `=== Runtime explicitly enabled`, and the final Compose status.
+
+
 ## Current local OOM finding
 
 Model weights (~224MB on disk) were downloaded and checksum-verified, but ONNX Runtime loads intermediate tensors at fixed 1024×1024 resolution. During initial session creation / warm-up, the local API container was OOM-killed at memory limits of 3g, 4g and 5g. The UI depends on `api: healthy` and could not run. Avoid repeated local startup on the 14-GiB workstation with full swap. This does not mean the Docker images or ONNX file are corrupt.

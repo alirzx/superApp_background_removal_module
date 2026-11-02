@@ -56,9 +56,11 @@ services:
     restart: unless-stopped
     environment:
       API_TOKEN: ${API_TOKEN:-}
+    # Nginx needs the API service to exist for Docker DNS, but the UI may
+    # start while the CPU model warms up (and report readiness itself).
     depends_on:
       api:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "${UI_BIND_IP:-127.0.0.1}:${UI_PORT:-8082}:80"
     networks:
