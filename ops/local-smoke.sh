@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-API="${API:-http://127.0.0.1:8000}"
+API="${API:-http://127.0.0.1:8001}"
 FILE="${1:?Usage: ops/local-smoke.sh /path/to/sample.png}"
 TOKEN="${API_TOKEN:-}"
 head_args=()

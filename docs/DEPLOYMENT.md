@@ -13,16 +13,20 @@ make ps
 make health
 ```
 
-Visit `http://127.0.0.1:8080`. API at `http://127.0.0.1:8000` (loopback by default). Choose a local image to exercise both outputs. For remote server access, reverse-proxy to TLS ingress, or use SSH port forwarding; never directly expose unprotected loopback ports.
+Visit `http://127.0.0.1:8082`. API at `http://127.0.0.1:8001` (loopback by default). Choose a local image to exercise both outputs. For remote server access, reverse-proxy to TLS ingress, or use SSH port forwarding; never directly expose unprotected loopback ports.
 
 The `model_cache` volume survives `docker compose down`, code updates, and image rebuilds; `docker compose down -v` **deletes weights and the HF cache**.
 
+## Current local OOM finding
+
+Model weights (~224MB on disk) were downloaded and checksum-verified, but ONNX Runtime loads intermediate tensors at fixed 1024×1024 resolution. During initial session creation / warm-up, the local API container was OOM-killed at memory limits of 3g, 4g and 5g. The UI depends on `api: healthy` and could not run. Avoid repeated local startup on the 14-GiB workstation with full swap. This does not mean the Docker images or ONNX file are corrupt.
+
 ## Deployment on GitLab server
 
-1. Set up GitLab Runner and immutable image tags; protect registry credentials in GitLab CI variables.
-2. Build/publish api + ui images, then pin images by digest in server Compose.
-3. Deploy `.env` out of repository using secrets management and rotate API token.
-4. Download model once on an attached persistent volume using the pinned revision/hash; no model download at API startup.
+1. Existing CI uses the shell runner tagged `linux`, `bina`, `shell`, and a **manual** `deploy` job on GitLab `master`.
+2. Set `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, and `ENV_FILE` as **File** CI/CD variables; set `SSH_USER`, `SSH_PORT`, and `VM_IPADDRESS` as standard variables. The `ENV_FILE` value is the complete production `.env` contents, not a pathname.
+3. The job transfers `.env` to `/opt/apps/ai-service/background-removal/.env`, fast-forwards checked-out `master`, and runs `docker compose config --quiet` followed by `docker compose build api ui`.
+4. `RUN_SERVICES=0` is the default. The manual job **does not download the model or start containers**. Before authorizing startup, download the ONNX once with `docker compose run --rm --no-deps --entrypoint python api -m scripts.download_model`, verify its SHA256 in the persistent volume, and confirm actual server RAM capacity.
 5. Block direct Internet access to API where possible. Limit UI ingress to HTTPS, proper ACL/auth at gateway, and prevent unauthorized image uploads.
 6. Turn on central metrics/logging; **do not log image contents or model secrets**.
 7. Ensure server cores, memory and thread counts are reserved so other CPU modules stay responsive.
@@ -43,7 +47,7 @@ The `model_cache` volume survives `docker compose down`, code updates, and image
 
 ## CPU memory and throughput
 
-Start with `CPU_THREADS=2`, one worker, `MAX_CONCURRENT_INFERENCE=1`, 3 GB API memory limit. These are **defaults to benchmark**, not a performance claim. Increase concurrency only if latency SLO improves under real hardware and concurrent memory stays acceptable. Monitor frequency throttling and CPU contention from other modules.
+One Uvicorn worker, `CPU_THREADS=2`, and `MAX_CONCURRENT_INFERENCE=1` are current baseline settings. The original 3g memory limit **failed** on the Ubuntu workstation, as did 4g and 5g. An 8g *server test profile* in `.env.production.example` is provisional and NOT a validated sufficient minimum. Do not enable `RUN_SERVICES=1` until server memory headroom and model warm-up have been measured. Increase concurrency only if latency SLO improves under real hardware and concurrent memory stays acceptable. Monitor frequency throttling and CPU contention from other modules.
 
 ## CLI benchmark
 
@@ -60,4 +64,4 @@ Before clearing anything, see [راهنمای فارسی رفع خطای Docker 
 
 ## Default regional PyPI mirrors
 
-API image builds use Liara as the primary mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and retry with Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) on installation failure. This is configured by the two `PIP_*_INDEX_URL` Docker build arguments; they are not needed at runtime. These mirrors do not cover Hugging Face model downloads. The default local UI host port is 8081; update an existing `.env` explicitly if it still says 8080.
+API image builds use Liara as the primary mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and retry with Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) on installation failure. This is configured by the two `PIP_*_INDEX_URL` Docker build arguments; they are not needed at runtime. These mirrors do not cover Hugging Face model downloads. The current host port defaults are API 8001 and UI 8082; internal container ports remain 8000 and 80. Existing `.env` overrides must be updated explicitly.

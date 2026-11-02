@@ -27,15 +27,15 @@ docker compose logs --tail=100 api
 docker compose logs --tail=100 ui
 ```
 
-UI: `http://127.0.0.1:8081`، API: `http://127.0.0.1:8000/docs` در development. `make up` فقط اجرا می‌کند و Build مجدد انجام نمی‌دهد. `docker compose down` مدل را حفظ می‌کند؛ `down -v` وزن‌های ذخیره‌شده را حذف می‌کند.
+UI: `http://127.0.0.1:8082`، API: `http://127.0.0.1:8001/docs` در development. `make up` فقط اجرا می‌کند و Build مجدد انجام نمی‌دهد. `docker compose down` مدل را حفظ می‌کند؛ `down -v` وزن‌های ذخیره‌شده را حذف می‌کند.
 
 ## محیط سرور / GitLab
 1. نمونه `.env.production.example` را روی سرور به `.env` کپی و `API_TOKEN` را با `openssl rand -hex 32` بسازید؛ فایل را Commit نکنید.
 2. `APP_ENV=production` بدون توکن قوی راه‌اندازی نمی‌شود.
 3. پورت‌های UI و API را روی loopback نگه دارید و با SSH Tunnel یا Ingress مجاز استفاده کنید.
 4. **اخطار امنیتی:** Nginx توکن API را برای تمام درخواست‌های UI درج می‌کند، ولی احراز هویت کاربر ندارد. قبل از انتشار عمومی، HTTPS، احراز هویت (مثلاً OIDC/SSO) و Rate Limit در Ingress اجباری است.
-5. CPU_THREADS=2، MAX_CONCURRENT_INFERENCE=1 و RAM=3g فقط شروع آزمایش هستند؛ روی سرور چندماژوله همراه با محدودیت منابع تنظیم شوند.
-6. CI فقط Source/Mock tests را می‌سنجد. برای استقرار سرور، Artifact/Image immutable و Volume مدل پایدار نیاز است.
+5. CPU_THREADS=2 و MAX_CONCURRENT_INFERENCE=1 مقادیر اولیه هستند؛ RAM=3g، 4g و 5g در تست واقعی روی لپ‌تاپ به OOM منجر شده‌اند. API_MEMORY=8g در نمونه Production تنها پیشنهاد آزمایشی و بدون تضمین است.
+6. CI فعلی فقط وجود فایل‌های Source را بررسی می‌کند و Job دستی SSH برای Build سرور دارد؛ تست‌های Mock به‌صورت خودکار در CI اجرا نمی‌شوند. RUN_SERVICES=0 مانع اجرای خودکار مدل می‌شود و مدل باید جداگانه در Volume دانلود و تأیید شود.
 
 ## چک‌لیست پذیرش
 - [ ] `make doctor`, `make build`, `make model`, `make model-verify` موفق باشند.

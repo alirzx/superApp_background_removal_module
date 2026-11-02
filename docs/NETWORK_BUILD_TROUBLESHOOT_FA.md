@@ -77,7 +77,7 @@ curl -fsS --max-time 15 -o /dev/null -w 'Chabokan HTTP %{http_code}\n' 'https://
 cd /mnt/X/hami_system_sharif/superApp_background_removal_module
 git fetch personal
 git merge --ff-only personal/main
-# فایل .env قبلی تغییر خودکار نمی‌کند؛ در صورت اشغال بودن 8080، UI_PORT=8081 بگذارید.
+# فایل .env قبلی تغییر خودکار نمی‌کند؛ مطابق Compose فعلی API_PORT=8001 و UI_PORT=8082 تنظیم کنید.
 docker compose config --quiet
 DOCKER_BUILDKIT=1 docker compose --progress plain build api
 # UI قبلاً build شده است؛ در صورت نیاز جداگانه بسازید.
