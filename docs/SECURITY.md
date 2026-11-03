@@ -6,7 +6,7 @@
 - The backend runtime loads a **local** ONNX file and never calls Hugging Face or executes Python custom model code as part of a request.
 - Images may still appear in upstream gateway access logs if that gateway is misconfigured; never log request bodies or query parameters containing secrets.
 - The UI is unprotected by itself. Public deployments **must** add TLS, access control and a request rate limiter at ingress; otherwise any public visitor can spend server CPU through the UI proxy.
-- Direct API port binds to `127.0.0.1` by default; the UI port also binds to loopback unless deliberately changed.
+- Direct API port binds to `127.0.0.1` by default; the UI port also binds to loopback unless deliberately changed. To reach a trusted LAN/VPN client, bind **only the UI** to a specific private interface and require a tightly scoped firewall rule plus authenticated ingress. Do not use `0.0.0.0` as the standard production setting.
 
 ## Authentication
 
@@ -35,3 +35,7 @@ The UI Nginx proxy inserts `X-API-Key` for every `/api` request. This protects t
 ## Build context boundary
 
 Root `.dockerignore` excludes `.env`, secrets, generated weights, caches and Git metadata from BOTH image build contexts. A Git ignore file alone does not protect Docker build contexts. Ignoring accidentally committed secrets will not erase history: rotate credentials and repair history separately.
+
+## Operational diagnostics
+
+Do not mount `/var/run/docker.sock` into the API or expose `docker compose logs` through an HTTP endpoint. Access to the Docker daemon is effectively host-level privilege. The existing `/health/live`, `/health/ready`, UI `/healthz`, and authenticated `/v1/models` endpoints convey application readiness, not Docker container history. An authorized operator can run `bash ops/server-diagnostics.sh`; `INCLUDE_LOGS=1` requires manual review and redaction before sharing. For self-service ongoing visibility, connect server logs to a centrally authenticated log platform such as Loki/Grafana with tenant-level access controls.

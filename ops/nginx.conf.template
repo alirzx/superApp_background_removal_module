@@ -16,7 +16,12 @@ server {
     # Deploy the UI behind authenticated TLS ingress before public access.
     # Server-side token injection: NEVER put API_TOKEN in the React bundle.
     location /api/ {
-        proxy_pass http://api:8000/;
+        # Resolve api via Docker DNS on each cache refresh, not at Nginx startup.
+        # This keeps the static UI available if the model API restarts.
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $api_upstream "api:8000";
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass http://$api_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;

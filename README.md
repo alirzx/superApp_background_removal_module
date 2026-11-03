@@ -4,7 +4,7 @@ Standalone CPU-only background removal for the AI Super App: two long-running Do
 
 ## Current deployment state (2026-11-02)
 
-`personal/main` and the organization GitLab `origin/master` synchronized through `0252972` before this documentation update. Local API/UI Docker builds and ONNX checksum verification succeeded. The real ONNX session/warm-up caused container OOM (exit 137) under 3g/4g/5g memory limits; UI cannot become healthy until API is healthy. **No production performance or readiness claim is made.** The GitLab shell-runner job builds API/UI images, downloads and verifies ONNX weights on the server, and skips starting new services by default (`RUN_SERVICES=0`). Explicit runtime testing requires approved server RAM and `RUN_SERVICES=1`. The UI depends on the API being **started** for Docker DNS, not on successful ONNX warm-up; this lets the web interface show backend readiness while model initialization is in progress. GitLab `RUN_SERVICES=1` still waits for both services to become healthy. A new server-side RAM benchmark is required before enabling runtime startup.
+`personal/main` and the organization GitLab `origin/master` synchronized through `0252972` before this documentation update. Local API/UI Docker builds and ONNX checksum verification succeeded. The real ONNX session/warm-up caused container OOM (exit 137) under 3g/4g/5g memory limits; UI cannot become healthy until API is healthy. **No production performance or readiness claim is made.** The GitLab shell-runner job builds API/UI images, downloads and verifies ONNX weights on the server, and skips starting new services by default (`RUN_SERVICES=0`). Explicit runtime testing requires approved server RAM and `RUN_SERVICES=1`. The UI depends on the API being **started**, not on successful ONNX warm-up. Its Nginx proxy now resolves `api:8000` at request time through Docker DNS, so the static UI can remain available when the API restarts; processing still requires a healthy API. GitLab `RUN_SERVICES=1` remains unchanged and waits for both services to become healthy. A new server-side RAM benchmark is required before enabling runtime startup.
 
 ## Quick start
 
@@ -79,7 +79,8 @@ Tests mock ONNX inference; they validate API contract and processing without dow
 - `frontend/src/`: React UI (Persian RTL, drag-and-drop, previews, mask, PNG download).
 - `ops/nginx.conf.template`: static serving and reverse proxy; no browser API secret.
 - `.gitlab-ci.yml`: GitLab `master` SSH build + ONNX model download/verification; runtime startup requires `RUN_SERVICES=1`.
-- `docs/`: architecture, deployment, model provenance and limitations.
+- `docs/`: architecture, deployment, model provenance, [VPN/LAN access and operator diagnostics](docs/NETWORK_ACCESS_AND_DIAGNOSTICS.md), and limitations.
+- `ops/server-diagnostics.sh`: read-only Compose/container health report for an authorized server operator; optional redacted log capture (not an HTTP API).
 
 ### Important notes
 
