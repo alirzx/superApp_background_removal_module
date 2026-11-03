@@ -69,3 +69,7 @@ Before clearing anything, see [راهنمای فارسی رفع خطای Docker 
 ## Default regional PyPI mirrors
 
 API image builds use Liara as the primary mirror (`https://package-mirror.liara.ir/repository/pypi/simple`) and retry with Chabokan (`https://mirror2.chabokan.net/pypi/simple/`) on installation failure. This is configured by the two `PIP_*_INDEX_URL` Docker build arguments; they are not needed at runtime. These mirrors do not cover Hugging Face model downloads. The current host port defaults are API 8001 and UI 8082; internal container ports remain 8000 and 80. Existing `.env` overrides must be updated explicitly.
+
+## Frontend runtime capabilities
+
+With the official `nginx:1.27-alpine` image, the UI container keeps `cap_drop: ALL` and restores the minimum `CHOWN`, `SETUID`, `SETGID`, and `NET_BIND_SERVICE`. The first three are required by Nginx startup and worker privilege dropping; the last allows port 80 on hosts that restrict low ports. The previous `74b9955` pipeline failed only on UI with `chown(...client_temp,101): Operation not permitted`; backend was healthy. Confirm UI health in the next deployment before changing port bindings or running browser inference.

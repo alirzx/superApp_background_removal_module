@@ -61,3 +61,9 @@ The existing GitLab deployment job also emits diagnostic logs when it fails. For
 4. The server has sufficient RAM (the `API_MEMORY=8g` template is not benchmarked).
 5. The VPN route and firewall allow only approved clients to reach the UI; user authentication and TLS are enforced where required.
 6. A real, non-sensitive test image returns an RGBA PNG or grayscale mask. The previous successful Docker builds and model download do **not** establish real inference success.
+
+## Nginx capability error fixed (2026-11-03)
+
+The GitLab `74b9955` pipeline proved the API was **healthy** and both Docker images built, but the UI crash-looped with `nginx: [emerg] chown("/var/cache/nginx/client_temp", 101) failed (1: Operation not permitted)`. Root cause: the UI Compose service used `cap_drop: [ALL]` but re-added only `NET_BIND_SERVICE`. The official `nginx:1.27-alpine` image also requires `CHOWN` for its temporary cache and `SETUID`/`SETGID` to switch its worker processes to the nginx user. Compose now restores only these four capabilities; `read_only`, `no-new-privileges`, tmpfs caps and resource limits remain intact. CI and Dockerfiles are unchanged.
+
+On the next deployment the UI must pass its built-in `/healthz` check. If the UI does not become healthy, inspect logs for another distinct Nginx configuration or permissions error. Do not grant `privileged: true` or remove `cap_drop: ALL` to bypass errors. Network exposure requires the separate ingress/VPN authorization described above.

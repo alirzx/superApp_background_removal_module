@@ -78,8 +78,13 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-      # Nginx uses port 80; retaining CAP_NET_BIND_SERVICE is required on some Docker hosts.
+    # Official nginx:alpine starts as root: it needs CHOWN for client_temp
+    # and SETUID/SETGID to run workers as uid/gid 101. Retain NET_BIND_SERVICE
+    # for port 80; no other Linux capabilities are granted.
     cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
       - NET_BIND_SERVICE
 networks:
   internal:
